@@ -1,9 +1,10 @@
 #!/bin/bash
 
 ##############################################################################
-#  certificate-creation.sh - Recreates all server certificates on OES1 and OES2.
+#  certificate-creation.sh version 3.2
+#  Recreates all server certificates on OES1, OES2, and OES 11.
 #  Copyright (C) 2001, 2008 Novell, Inc.
-#
+#  Copyright (C) 2016 Chad Sutton
 ##############################################################################
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -20,7 +21,7 @@
 #
 #  Authors/Contributors:
 #     Jeremy Meldrum (jmeldrum@novell.com)
-#
+#	  Chad Sutton (casutton@noctrl.edu) (csutton@chadarius.com)
 ##############################################################################
 fileType="pfx"
 dirPath=""
@@ -454,27 +455,39 @@ recreateLumCert ()
         
         
 }
+
 checkOESVersion ()
 {
 	oesVersion=$(cat /etc/novell-release | grep VERSION | cut -d= -f2 |sed -e 's/^[ \t]*//')
 }
 
-reloadServices ()
+# return 0 if program version is equal or greater than check version
+# http://fitnr.com/bash-comparing-version-strings.html - Louis Marascio
+check_version()
 {
-        printf "\n"
-        echo '#===========Reloading Services==========================================#'
-        if [ $oesVersion != "11" ]; then
-	        echo 'Restarting owcimomd.................................#'
-	        rcowcimomd restart
-        fi
-        echo 'Restarting namcd....................................#'
-                rcnamcd restart
-        echo 'Restarting apache2..................................#'
-                rcapache2 restart
-
-        printf "\n"
+    local version=$1 check=$2
+    local winner=$(echo -e "$version\n$check" | sed '/^$/d' | sort -nr | head -1)
+    [[ "$winner" = "$version" ]] && return 0
+    return 1
 }
 
+reloadServices ()
+{
+	printf "\n"
+	echo '#===========Reloading Services==========================================#'
+	if check_version "$oesVersion" "11"; then
+		echo "OES version is 11 or higher"
+	else
+		echo 'OES 10 Restarting owcimomd..........................#'
+		rcowcimomd restart
+	fi
+	echo 'Restarting namcd....................................#'
+			rcnamcd restart
+	echo 'Restarting apache2..................................#'
+			rcapache2 restart
+
+	printf "\n"
+}
 checkUser ()
 {
 	user=`whoami`
